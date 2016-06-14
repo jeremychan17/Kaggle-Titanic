@@ -14,6 +14,7 @@ if(Sys.info()["sysname"]=="Darwin")
 # add windows working directory
 
 train = read.csv("train.csv")
+test = read.csv("test.csv")
 ```
 
 Data exploration
@@ -22,3 +23,31 @@ str(train)
 ```
 891 observations of 12 variables
   PassengerID, survived, passenger class, name, sex, age, num of sibling/spouses aboard, number of parents/children aboard, ticket number, passenger fare, cabin, port of embarkation (C = Cherbourg, Q = Queenstown, S = Southampton)
+  
+Survival Rates
+```{r}
+table(train$Survived, dnn = "Survived")
+prop.table(table(train$Survived, dnn = "Survived"))
+```
+
+It looks like there is a 38.38% survival rate among all passengers. 
+
+Set up test survival rates and create ouput file 
+```{r}
+# assume everyone died
+test$Survived <- rep(0, 418)
+submit = data.frame(PassengerId = test$PassengerId, Survived = test$Survived)
+write.csv(submit, file = "theyalldie.csv", row.names = FALSE)
+```
+
+Adding more varibles
+
+Exploring gender
+
+Gender Survival Rates
+```{r}
+table(train$Sex)
+prop.table(table(train$Survived, train$Sex), 1)
+```
+
+68.13% of females survived and 31.87% of males survived. 
