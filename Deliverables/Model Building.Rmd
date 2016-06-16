@@ -50,7 +50,7 @@ table(train$Sex)
 prop.table(table(train$Survived, train$Sex), 1)
 ```
 
-68.13% of females survived and 31.87% of males survived. 
+683% of females survived and 31.87% of males survived. 
 
 Test submission 2
 ```{r}
@@ -67,9 +67,8 @@ train$Child[train$Age < 18] = 1
 aggregate(Survived ~ Child + Sex, data=train, FUN=function(x) sum(x)/length(x))
 ```
 
-Creating a manual linear probability model
+Clean train
 ```{r}
-# Using Train
 # Replace Age NA values with mean Age
 train$Age = ifelse(is.na(train$Age), mean(train$Age, na.rm = TRUE), train$Age) 
 # Creates Categorical Variable for Gender
@@ -80,23 +79,10 @@ train$Embark_C = ifelse(train$Embarked == "C", 1, 0)
 train$Embark_Q = ifelse(train$Embarked == "Q", 1, 0) 
 # Creates Categorical Variable for Child
 train$Child = ifelse(train$Age < 18, 1, 0) 
+```
 
-# Creates matrix of manually-selected variables
-train_manual = train[, c("Pclass", "Age", "Fare", "Survived", "Male", "Embark_C", "Embark_Q", "Child")]
-
-
-
-# head(train_manual)
-# Create linear model based on manually-selected variables
-simple_linear = lm(Survived~., data = train_manual)
-train_manual$Prediction = ifelse(predict(simple_linear, train_manual[-4], type = "response")>= .5, 1, 0)
-
-# Confusion Matrix
-table(train_manual$Survived, train_manual$Prediction, dnn = c("Survived", "Predicted"))
-# Accuracy Rate
-(469+241)/(469+80+101+240)
-
-# Using Test
+Clean Test
+```{r}
 # Replace Age NA values with mean Age
 test$Age = ifelse(is.na(test$Age), mean(train$Age, na.rm = TRUE), test$Age) 
 # Replace Fare NA values with mean Fare by class
@@ -115,6 +101,27 @@ test$Embark_C = ifelse(test$Embarked == "C", 1, 0)
 test$Embark_Q = ifelse(test$Embarked == "Q", 1, 0) 
 # Creates Categorical Variable for Child
 test$Child = ifelse(test$Age < 18, 1, 0) 
+```
+
+Creating a manual linear probability model
+```{r}
+# Using Train
+
+# Creates matrix of manually-selected variables
+train_manual = train[, c("Pclass", "Age", "Fare", "Survived", "Male", "Embark_C", "Embark_Q", "Child")]
+
+
+# head(train_manual)
+# Create linear model based on manually-selected variables
+simple_linear = lm(Survived~., data = train_manual)
+train_manual$Prediction = ifelse(predict(simple_linear, train_manual[-4], type = "response")>= .5, 1, 0)
+
+# Confusion Matrix
+table(train_manual$Survived, train_manual$Prediction, dnn = c("Survived", "Predicted"))
+# Accuracy Rate
+(469+241)/(469+80+101+240) # 79.77% accuracy
+
+# Using Test
 
 test$Prediction = ifelse(predict(simple_linear, test, type = "response")>= .5, 1, 0)
 # Check for NAs in prediction
@@ -122,14 +129,70 @@ which(is.na(test$Prediction))
 
 submit_simple_linear = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
 write.csv(submit_simple_linear, file = "simple_linear.csv", row.names = FALSE)
-
-# empty.model = glm(Survived~1, data = train_manual, family = binomial(link=logit))
-
 ```
 
 This model sees a 74.61% accuracy rate
 
 Automatically fitting a model
 ```{r}
+# Reset train_manual
+train_manual = train[, c("Pclass", "Age", "Fare", "Survived", "Male", "Embark_C", "Embark_Q", "Child", "SibSp", "Parch")]
 
+# using BIC to fit a model
+empty.model = glm(Survived~1, data = train_manual, family = binomial(link=logit))
+full.model = glm(Survived~., data = train_manual, family = binomial(link=logit))
+
+best.forward.BIC = step(empty.model,scope = list(lower = empty.model, upper = full.model),direction = "forward", criterion = "BIC", trace = FALSE)
+best.backward.BIC = step(full.model,scope = list(lower = empty.model, upper = full.model),direction = "backward", criterion = "BIC", trace = FALSE)
+best.FB.BIC = step(empty.model,scope = list(lower = empty.model, upper = full.model),direction = "both", criterion = "BIC", trace = FALSE)
+best.BF.BIC = step(full.model,scope = list(lower = empty.model, upper = full.model),direction = "both", criterion = "BIC", trace = FALSE)
+
+best.forward.BIC$formula
+best.backward.BIC$formula
+best.FB.BIC$formula
+best.BF.BIC$formula
+
+# Using AIC to fit a model
+best.forward.AIC = step(empty.model,scope = list(lower = empty.model, upper = full.model),direction = "forward", criterion = "AIC", trace = FALSE)
+best.backward.AIC = step(full.model,scope = list(lower = empty.model, upper = full.model),direction = "backward", criterion = "AIC", trace = FALSE)
+best.FB.AIC = step(empty.model,scope = list(lower = empty.model, upper = full.model),direction = "both", criterion = "AIC", trace = FALSE)
+best.BF.AIC = step(full.model,scope = list(lower = empty.model, upper = full.model),direction = "both", criterion = "AIC", trace = FALSE)
+
+best.forward.AIC$formula
+best.backward.AIC$formula
+best.FB.AIC$formula
+best.BF.AIC$formula
+
+train_manual$Prediction = ifelse(predict(best.FB.AIC, train_manual, type = "response")>= .5, 1, 0)
+
+# Confusion Matrix
+table(train_manual$Survived, train_manual$Prediction, dnn = c("Survived", "Predicted"))
+# Accuracy Rate
+(475+233)/(891) # 79.46% accuracy
+
+# Using Test
+
+test$Prediction = ifelse(predict(best.FB.AIC, test, type = "response")>= .5, 1, 0)
+# Check for NAs in prediction
+which(is.na(test$Prediction))
+
+submit_AIC = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
+write.csv(submit_AIC, file = "AIC.csv", row.names = FALSE)
+```
+
+Accuracy is 0.75598 or 75.598%
+
+
+Using AUC to select a model
+```{r}
+train_manual = train[, c("Pclass", "Age", "Fare", "Survived", "Male", "Embark_C", "Embark_Q", "Child", "SibSp", "Parch")]
+# using AUC to fit a model
+library(glmnet)
+they = as.factor(train_manual$Survived)
+thex = as.matrix(as.matrix(train_manual[,-4]))
+full.fit.lasso = glmnet(thex,they,family = "binomial")
+by.auc.lasso = cv.glmnet(thex,they,family = "binomial",type = "auc")
+best.lambda = which(full.fit.lasso$lambda == by.auc.lasso$lambda.min)
+best.model.lasso = full.fit.lasso$beta[,best.lambda]
+best.model.lasso
 ```
