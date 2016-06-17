@@ -215,3 +215,36 @@ submit_AUC = data.frame(PassengerId = test$PassengerId, Survived = test$Predicti
 write.csv(submit_AUC, file = "AUC.csv", row.names = FALSE)
 ```
 0.75598 accuracy. 
+
+Decision Tree
+```{r}
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+train_manual = train[, c("Pclass", "Age", "Fare", "Survived", "Male", "Embarked", "Child", "SibSp", "Parch", "Sex")]
+
+fit = rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked,
+               data=train_manual,
+               method="class")
+
+fancyRpartPlot(fit)
+
+train_manual$Prediction = predict(fit, train_manual, type = "class")
+
+# Confusion Matrix
+table(train_manual$Survived, train_manual$Prediction, dnn = c("Survived", "Predicted"))
+# Accuracy Rate
+(498+244)/(891) # 83.28% accuracy
+
+# Using Test
+
+test$Prediction = predict(fit, test, type = "class")
+# Check for NAs in prediction
+which(is.na(test$Prediction))
+
+submit_DT = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
+write.csv(submit_DT, file = "DT.csv", row.names = FALSE)
+```
+
+0.77033 accuracy
