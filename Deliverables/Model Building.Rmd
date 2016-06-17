@@ -317,5 +317,19 @@ write.csv(submit_RF, file = "RF.csv", row.names = FALSE)
 
 Conditional Inference Forest
 ```{r}
+library(party)
+set.seed(415)
 
+fit = cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID, data = train, controls=cforest_unbiased(ntree=2000, mtry=3))
+
+train$Prediction = predict(fit, train, OOB=TRUE, type = "response")
+
+# Using Test
+
+test$Prediction = predict(fit, test, OOB = TRUE, type = "response")
+# Check for NAs in prediction
+which(is.na(test$Prediction))
+
+submit_CIF = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
+write.csv(submit_CIF, file = "CIF.csv", row.names = FALSE)
 ```
