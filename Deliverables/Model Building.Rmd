@@ -195,4 +195,23 @@ by.auc.lasso = cv.glmnet(thex,they,family = "binomial",type = "auc")
 best.lambda = which(full.fit.lasso$lambda == by.auc.lasso$lambda.min)
 best.model.lasso = full.fit.lasso$beta[,best.lambda]
 best.model.lasso
+
+AUC.model = glm(Survived~Pclass + Male + Embark_C + Embark_Q + Child + SibSp + Parch, data = train_manual, family = binomial(link=logit))
+
+train_manual$Prediction = ifelse(predict(AUC.model, train_manual, type = "response")>= .5, 1, 0)
+
+# Confusion Matrix
+table(train_manual$Survived, train_manual$Prediction, dnn = c("Survived", "Predicted"))
+# Accuracy Rate
+(470+242)/(891) # 79.91% accuracy
+
+# Using Test
+
+test$Prediction = ifelse(predict(AUC.model, test, type = "response")>= .5, 1, 0)
+# Check for NAs in prediction
+which(is.na(test$Prediction))
+
+submit_AUC = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
+write.csv(submit_AUC, file = "AUC.csv", row.names = FALSE)
 ```
+0.75598 accuracy. 
