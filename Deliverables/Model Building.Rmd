@@ -248,3 +248,74 @@ write.csv(submit_DT, file = "DT.csv", row.names = FALSE)
 ```
 
 0.77033 accuracy
+
+Random Forests
+```{r}
+# Create Combined Matrix
+test$Survived = NA
+combi = rbind(train, test)
+
+# Data Cleaning
+combi$Name <- as.character(combi$Name)
+combi$Title <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
+combi$Title = factor(combi$Title)
+combi$FamilySize <- combi$SibSp + combi$Parch + 1
+combi$Surname <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][1]})
+combi$FamilyID <- paste(as.character(combi$FamilySize), combi$Surname, sep="")
+combi$FamilyID[combi$FamilySize <= 2] <- 'Small'
+famIDs <- data.frame(table(combi$FamilyID))
+combi$FamilyID[combi$FamilyID %in% famIDs$Var1] <- 'Small'
+combi$FamilyID <- factor(combi$FamilyID)
+
+# Filling in Age NA
+Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize,
+                  data=combi[!is.na(combi$Age),], 
+                  method="anova")
+combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
+
+# Filling in Embarked NA
+combi$Embarked[c(62,830)] = "S"
+combi$Embarked <- factor(combi$Embarked)
+
+# Filling in Fare NA
+combi$Fare[1044] <- median(combi$Fare, na.rm=TRUE)
+
+# Reducing FamilyID Factors
+combi$FamilyID2 <- combi$FamilyID
+combi$FamilyID2 <- as.character(combi$FamilyID2)
+combi$FamilyID2[combi$FamilySize <= 3] <- 'Small'
+combi$FamilyID2 <- factor(combi$FamilyID2)
+
+library(randomForest)
+set.seed(415)
+
+# Split Train and Test
+train <- combi[1:891,]
+test <- combi[892:1309,]
+
+fit <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID2, data=train, importance=TRUE, ntree=2000)
+
+varImpPlot(fit)
+
+train$Prediction = predict(fit, train)
+
+# Confusion Matrix
+table(train$Survived, train$Prediction, dnn = c("Survived", "Predicted"))
+# Accuracy Rate
+(534+292)/(891) # 92.70% accuracy
+
+# Using Test
+
+test$Prediction = predict(fit, test)
+# Check for NAs in prediction
+which(is.na(test$Prediction))
+
+submit_RF = data.frame(PassengerId = test$PassengerId, Survived = test$Prediction)
+write.csv(submit_RF, file = "RF.csv", row.names = FALSE)
+```
+.77512 accuracy
+
+Conditional Inference Forest
+```{r}
+
+```
